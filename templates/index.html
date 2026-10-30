@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TA-04 LSTM Dashboard | Prediksi Penumpang Pesawat</title>
+    
+    <!-- Google Fonts & Chart.js -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --bg-base: #0B0F19;
+            --bg-card: #111827;
+            --bg-hover: #1F2937;
+            --border-color: #1F2937;
+            --accent-cyan: #06B6D4;
+            --accent-indigo: #6366F1;
+            --accent-green: #10B981;
+            --text-main: #F9FAFB;
+            --text-muted: #9CA3AF;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            padding: 24px;
+            min-height: 100vh;
+        }
+
+        .dashboard-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-bottom: 20px;
+            border-bottom: 1px solid var(--border-color);
+            margin-bottom: 24px;
+        }
+
+        .title-group h1 {
+            font-size: 24px;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-indigo));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .title-group p {
+            color: var(--text-muted);
+            font-size: 14px;
+            margin-top: 4px;
+        }
+
+        .badge {
+            background: rgba(6, 182, 212, 0.1);
+            color: var(--accent-cyan);
+            border: 1px solid rgba(6, 182, 212, 0.3);
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 12px;
+            font-weight: 600;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+            margin-bottom: 24px;
+        }
+
+        .metric-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            padding: 18px;
+            border-radius: 12px;
+        }
+
+        .metric-card span {
+            color: var(--text-muted);
+            font-size: 13px;
+            display: block;
+            margin-bottom: 6px;
+        }
+
+        .metric-card .value {
+            font-size: 22px;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+        }
+
+        @media (max-width: 992px) {
+            .main-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+
+        .card-title {
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .chart-container {
+            position: relative;
+            height: 380px;
+            width: 100%;
+        }
+
+        .control-group {
+            margin-bottom: 16px;
+        }
+
+        .control-group label {
+            display: block;
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 8px;
+        }
+
+        .btn-predict {
+            width: 100%;
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-indigo));
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            margin-top: 12px;
+        }
+
+        .btn-predict:hover {
+            opacity: 0.9;
+        }
+
+        .result-box {
+            margin-top: 20px;
+            padding: 16px;
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            border-radius: 8px;
+            text-align: center;
+        }
+
+        .result-box span {
+            font-size: 13px;
+            color: var(--accent-green);
+            display: block;
+            margin-bottom: 4px;
+        }
+
+        .result-box .result-value {
+            font-size: 28px;
+            font-weight: 800;
+            color: var(--accent-green);
+            font-family: 'JetBrains Mono', monospace;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="dashboard-header">
+        <div class="title-group">
+            <h1>TA-04: Airline Passengers Forecasting</h1>
+            <p>Model Deep Learning Recurrent Neural Network (LSTM) | Soni Moch Leviansyah</p>
+        </div>
+        <div class="badge">STATUS: MODEL ONLINE</div>
+    </div>
+
+    <!-- Ringkasan Metrik Proyek -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <span>Model Architecture</span>
+            <div class="value" style="color: var(--accent-cyan)">Stacked LSTM</div>
+        </div>
+        <div class="metric-card">
+            <span>Evaluation RMSE</span>
+            <div class="value" style="color: var(--accent-indigo)">71.35</div>
+        </div>
+        <div class="metric-card">
+            <span>Window Size (Timesteps)</span>
+            <div class="value">12 Bulan</div>
+        </div>
+        <div class="metric-card">
+            <span>Dataset</span>
+            <div class="value">AirPassengers.csv</div>
+        </div>
+    </div>
+
+    <!-- Visualisasi Grafik & Panel Prediksi -->
+    <div class="main-grid">
+        <!-- Card Grafik -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">Grafik Historis vs Prediksi LSTM</div>
+            </div>
+            <div class="chart-container">
+                <canvas id="lstmChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Card Control Prediksi -->
+        <div class="card">
+            <div class="card-header">
+                <div class="card-title">Inferensi Prediksi</div>
+            </div>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 16px;">
+                Model akan menggunakan 12 data penumpang terkini dari dataset untuk memprediksi jumlah penumpang di bulan berikutnya.
+            </p>
+            
+            <button class="btn-predict" onclick="runInference()">Jalankan Prediksi Model</button>
+
+            <div class="result-box" id="resultBox" style="display: none;">
+                <span>Estimasi Penumpang Bulan Berikutnya</span>
+                <div class="result-value" id="predValue">0</div>
+                <span style="font-size: 11px; margin-top: 4px; color: var(--text-muted)">Orang / Bulan</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let chartInstance = null;
+        let globalData = [];
+
+        // Load data historis dari Flask API saat halaman dibuka
+        async function loadData() {
+            try {
+                const res = await fetch('/api/data');
+                const json = await res.json();
+                globalData = json.data;
+
+                const labels = globalData.map(item => item.date);
+                const values = globalData.map(item => item.passengers);
+
+                renderChart(labels, values);
+            } catch (err) {
+                console.error("Gagal memuat data historis:", err);
+            }
+        }
+
+        function renderChart(labels, values) {
+            const ctx = document.getElementById('lstmChart').getContext('2d');
+            
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Data Penumpang Historis',
+                        data: values,
+                        borderColor: '#06B6D4',
+                        backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                        borderWidth: 2,
+                        fill: true,
+                        tension: 0.2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            grid: { color: '#1F2937' },
+                            ticks: { color: '#9CA3AF' }
+                        },
+                        y: {
+                            grid: { color: '#1F2937' },
+                            ticks: { color: '#9CA3AF' }
+                        }
+                    },
+                    plugins: {
+                        legend: { labels: { color: '#F9FAFB' } }
+                    }
+                }
+            });
+        }
+
+        async function runInference() {
+            if (globalData.length < 12) return;
+
+            // Ambil 12 data penumpang terakhir
+            const last12 = globalData.slice(-12).map(item => item.passengers);
+
+            try {
+                const res = await fetch('/api/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ last_12_months: last12 })
+                });
+
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('resultBox').style.display = 'block';
+                    document.getElementById('predValue').innerText = data.prediction;
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            } catch (err) {
+                alert('Gagal menghubungi server Flask');
+            }
+        }
+
+        window.onload = loadData;
+    </script>
+</body>
+</html>
