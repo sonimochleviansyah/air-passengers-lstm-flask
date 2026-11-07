@@ -1,0 +1,9 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+.git/
+.cache/
+convert.py
+saved_model/
+model_lstm_passengers.h5
