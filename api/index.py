@@ -1,26 +1,29 @@
-from flask import Flask, jsonify, render_template, request
-import pandas as pd
-import onnxruntime as ort
-import numpy as np
-import joblib
-import os
 import sys
+from pathlib import Path
 
-# Tambahkan root directory ke sys.path agar file model, scaler & data bisa dibaca
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(BASE_DIR)
+# Dapatkan root directory proyek secara absolut
+BASE_DIR = Path(__file__).resolve().parent.parent
+sys.path.append(str(BASE_DIR))
 
+import joblib
+import numpy as np
+import onnxruntime as ort
+import pandas as pd
+from flask import Flask, jsonify, render_template, request
 
-app = Flask(__name__, template_folder=os.path.join(BASE_DIR, 'templates'))
+# Pastikan Flask mengenali lokasi folder templates dari root
+app = Flask(__name__, template_folder=str(BASE_DIR / 'templates'))
 
-# Path file
-MODEL_PATH = os.path.join(BASE_DIR, 'model_lstm_passengers.onnx')
-SCALER_PATH = os.path.join(BASE_DIR, 'scaler.pkl')
-DATA_PATH = os.path.join(BASE_DIR, 'AirPassengers.csv')
+# Deklarasi lokasi file absolut
+MODEL_PATH = BASE_DIR / 'model_lstm_passengers.onnx'
+SCALER_PATH = BASE_DIR / 'scaler.pkl'
+DATA_PATH = BASE_DIR / 'AirPassengers.csv'
 
-session = ort.InferenceSession(
-    MODEL_PATH) if os.path.exists(MODEL_PATH) else None
-scaler = joblib.load(SCALER_PATH) if os.path.exists(SCALER_PATH) else None
+# Load Model & Scaler
+session = (
+    ort.InferenceSession(str(MODEL_PATH)) if MODEL_PATH.exists() else None
+)
+scaler = joblib.load(str(SCALER_PATH)) if SCALER_PATH.exists() else None
 
 
 @app.route('/')
@@ -30,10 +33,10 @@ def index():
 
 @app.route('/api/data', methods=['GET'])
 def get_data():
-    if not os.path.exists(DATA_PATH):
+    if not DATA_PATH.exists():
         return jsonify({'error': 'File AirPassengers.csv tidak ditemukan'}), 404
 
-    df = pd.read_csv(DATA_PATH)
+    df = pd.read_csv(str(DATA_PATH))
     if 'Passengers' in df.columns:
         df.rename(columns={'Passengers': '#Passengers'}, inplace=True)
 
@@ -49,9 +52,18 @@ def get_data():
 @app.route('/api/predict', methods=['POST'])
 def predict():
     if session is None or scaler is None:
-        return jsonify({'error': 'Model ONNX atau Scaler belum dimuat'}), 500
+        return (
+            jsonify({
+                'error': (
+                    f'Model atau Scaler belum dimuat. Model Path Exist:'
+                    f' {MODEL_PATH.exists()}, Scaler Path Exist:'
+                    f' {SCALER_PATH.exists()}'
+                )
+            }),
+            500,
+        )
 
-    payload = request.get_json()
+    payload = request.get_json() or {}
     last_12_months = payload.get('last_12_months', [])
 
     if len(last_12_months) != 12:
@@ -63,14 +75,10 @@ def predict():
         )
 
     try:
-        # Preprocessing & Scaling
         input_array = np.array(last_12_months, dtype=np.float32).reshape(-1, 1)
         scaled_input = scaler.transform(input_array)
-
-        # Reshape ke 3D (1, 12, 1) float32 untuk ONNX LSTM
         X_input = scaled_input.reshape(1, 12, 1).astype(np.float32)
 
-        # Inferensi ONNX
         input_name = session.get_inputs()[0].name
         output_name = session.get_outputs()[0].name
 
