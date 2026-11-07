@@ -96,3 +96,6 @@ def predict():
 
 if __name__ == '__main__':
     app.run(debug=True)
+    
+# Tambahkan ini di paling bawah api/index.py
+app = app
