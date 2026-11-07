@@ -3,7 +3,10 @@
   "builds": [
     {
       "src": "api/index.py",
-      "use": "@vercel/python"
+      "use": "@vercel/python",
+      "config": {
+        "excludeFiles": "{.venv/**,venv/**,saved_model/**,model_lstm_passengers.h5,convert.py}"
+      }
     }
   ],
   "routes": [
